@@ -5,6 +5,8 @@ import shutil
 from exif import Image
 from classes.ImageObj import ImageObj
 from tqdm import tqdm
+import re
+import csv
 
 
 MONTHS = {
@@ -38,7 +40,10 @@ def get_month(number):
     :param number: month number key
     :return:
     """
-    return MONTHS[number]
+    if number in MONTHS:
+        return MONTHS[number]
+    else:
+        return "unclassified"
 
 
 class PicOrdener:
@@ -106,8 +111,21 @@ class PicOrdener:
                 # Add the metadata to the corresponding ImageObj instance
                 try :
                     img.meta = img_meta.get("datetime")
-                except KeyError:
+                except:
                     pass
+
+    def save_to_csv(self):
+        """
+        Write all metadta to csv in order to gain time if prpgram crash durinf copying
+        :return: None
+        """
+        print("Saving to CSV")
+
+        with open("metadate.csv", 'w') as f:
+            writer = csv.writer(f)
+
+            for images in self.images_list:
+                writer.writerow(images.get_img())
 
     def copy_images(self):
         """
@@ -121,20 +139,28 @@ class PicOrdener:
                 year, month = images.meta.split(":")[0], images.meta.split(":")[1]
                 verbose_month = get_month(month)
 
-                # Concatenate the path
-                dated_path = os.path.join(year, verbose_month)
-                full_path = os.path.join(self.target_dir, dated_path)
+                if re.match("^\d{4}$", year):
 
-                check_dir(full_path)
+                    # Concatenate the path
+                    dated_path = os.path.join(year, verbose_month)
+                    full_path = os.path.join(self.target_dir, dated_path)
 
-                # Copy image
-                shutil.copyfile(images.path, os.path.join(full_path, images.name))
+                    check_dir(full_path)
+
+                    # Copy image
+                    shutil.copyfile(images.path, os.path.join(full_path, images.name))
+
+                else:
+                    raise AttributeError
 
             # If we can't find metadata, then we create an unclassified folder to store them
-            except AttributeError:
+            except (AttributeError, IndexError):
                 check_dir("copy/unclassified")
 
                 shutil.copyfile(images.path, os.path.join("copy/unclassified", images.name))
+
+            except:
+                pass
 
         print("All done !")
 
